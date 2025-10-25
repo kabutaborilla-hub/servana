@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saravana Sales CRM</title>
+    
+    <!-- 1. Loads Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Loads Supabase client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 3. Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- 4. Custom styles for the app -->
+    <style>
+        /* Base styling */
+        :root {
+            --color-primary: 63, 98, 182; /* Deep Indigo */
+            --color-primary-light: 239, 246, 255; /* blue-50 */
+            --color-primary-dark-text: 30, 64, 175; /* blue-800 */
+            
+            --color-secondary: 20, 184, 166; /* Teal */
+            --color-secondary-light: 240, 253, 250; /* teal-50 */
+            --color-secondary-dark-text: 15, 118, 110; /* teal-700 */
+
+            --color-text: 55, 65, 81; /* gray-700 */
+            --color-text-light: 107, 114, 128; /* gray-500 */
+            --color-bg: 243, 244, 246; /* gray-100 */
+            --color-card-bg: 255, 255, 255;
+            --color-border: 229, 231, 235; /* gray-200 */
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Custom Tailwind classes */
+        .primary-bg { background-color: rgb(var(--color-primary)); }
+        .primary-text { color: rgb(var(--color-primary)); }
+        .primary-text-dark { color: var(--color-primary-dark-text); }
+        .primary-bg-light { background-color: var(--color-primary-light); }
+        
+        .secondary-bg { background-color: rgb(var(--color-secondary)); }
+        .secondary-text { color: rgb(var(--color-secondary)); }
+        .secondary-text-dark { color: var(--color-secondary-dark-text); }
+        .secondary-bg-light { background-color: var(--color-secondary-light); }
+        
+        /* Custom modal styles */
+        #modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+        }
+
+        /* Custom Loader */
+        #loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 60;
+        }
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            padding: 3px;
+            background: conic-gradient(#0000 10%, rgb(var(--color-primary))) 
+                        mask;
+            -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 6px),#000 0);
+            mask: radial-gradient(farthest-side,#0000 calc(100% - 6px),#000 0);
+            animation: spin 1s infinite linear;
+        }
+        @keyframes spin {
+            to { transform: rotate(1turn); }
+        }
+
+        /* Kanban Drag Styling */
+        .kanban-column {
+            scroll-snap-align: start;
+            flex: 0 0 90%; /* Each column takes 90% of viewport */
+        }
+        @media (min-width: 768px) {
+            .kanban-column {
+                flex: 0 0 300px; /* Fixed width on desktop */
+            }
+        }
+        .kanban-card.dragging {
+            opacity: 0.5;
+            background: var(--color-primary-light);
+            transform: rotate(3deg);
+        }
+        .kanban-dropzone.drag-over {
+            background: var(--color-primary-light);
+            border-style: dashed;
+        }
+
+        /* Custom Form Input Focus */
+        input:focus, textarea:focus, select:focus {
+            box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.5);
+            border-color: rgb(var(--color-primary));
+            outline: none;
+        }
+
+        /* Custom Nav */
+        .nav-button.active svg {
+            color: rgb(var(--color-primary));
+        }
+        .nav-button.active span {
+            color: rgb(var(--color-primary));
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="pb-24">
+
+    <!-- --- Main Container --- -->
+    <div class="container mx-auto max-w-7xl">
+
+        <!-- --- Header --- -->
+        <header id="app-header" class="p-4 pt-6 md:px-8 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="p-2 primary-bg text-white rounded-xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h1 class="text-2xl md:text-3xl font-bold primary-text-dark">
+                    Saravana CRM
+                </h1>
+            </div>
+            <button id="back-button" class="hidden text-gray-500 hover:text-gray-900">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- --- Loading Spinner --- -->
+        <div id="loader">
+            <div class="spinner"></div>
+        </div>
+        
+        <!-- --- Error/Message Display --- -->
+        <div id="message-bar" class="text-center p-4 m-4 rounded-lg shadow" style="display: none;">
+            <!-- Message content goes here -->
+        </div>
+
+        <!-- --- Main Content Area --- -->
+        <main id="app-content" class="p-4 md:px-8">
+            <!-- Dynamic content will be injected by JavaScript -->
+        </main>
+
+    </div> <!-- End container -->
+
+    <!-- --- Bottom Navigation --- -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-inner flex justify-around items-center h-20 md:h-16 z-30">
+        
+        <button id="nav-dashboard" class="nav-button active flex flex-col items-center justify-center w-full h-full text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            <span class="text-xs font-medium mt-1">Dashboard</span>
+        </button>
+        
+        <button id="nav-pipeline" class="nav-button flex flex-col items-center justify-center w-full h-full text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span class="text-xs font-medium mt-1">Pipeline</span>
+        </button>
+        
+        <button id="nav-add" class="flex flex-col items-center justify-center primary-bg text-white rounded-full h-16 w-16 -mt-8 shadow-lg border-4 border-white hover:opacity-90 transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+        </button>
+        
+        <button id="nav-tasks" class="nav-button flex flex-col items-center justify-center w-full h-full text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            <span class="text-xs font-medium mt-1">Tasks</span>
+        </button>
+        
+        <button id="nav-search" class="nav-button flex flex-col items-center justify-center w-full h-full text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span class="text-xs font-medium mt-1">Search</span>
+        </button>
+    </nav>
+    
+    <!-- --- Confirmation Modal --- -->
+    <div id="modal-backdrop"></div>
+    <div id="modal" class="bg-white rounded-2xl shadow-xl max-w-sm w-11/12 p-6 transition-all transform opacity-0 scale-95">
+        <h3 id="modal-title" class="text-xl font-semibold text-gray-900 mb-2">Confirm Action</h3>
+        <p id="modal-message" class="text-gray-600 mb-6">Are you sure?</p>
+        <div class="flex justify-end space-x-3">
+            <button id="modal-cancel-btn" class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+            <button id="modal-confirm-btn" class="px-5 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors">
+                Confirm
+            </button>
+        </div>
+    </div>
+
+
+    <!-- 5. Main Application JavaScript -->
+    <script type="module">
+        // --- Supabase Setup ---
+        const SUPABASE_URL = 'https://seygsmqucuvnialnuqdv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIZUIXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNleWdzbXF1Y3V2bmlhbG51cWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzODY1ODMsImV4cCI6MjA3Njk2MjU4M30.5iXFdlkDHVKRjHBTqUiI1SrRpItoLbrTsZVe-9ETiII';
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- Constants ---
+        const DEAL_STAGES = ['New', 'Contacted', 'Demo', 'Proposal', 'Closed-Won', 'Closed-Lost'];
+        const PRIORITIES = ['Hot', 'Warm', 'Cold'];
+        const LEAD_SOURCES = ['Walk-in', 'Referral', 'Cold Call', 'Web', 'Other'];
+
+        // --- Application State ---
+        let state = {
+            view: 'dashboard', // 'dashboard', 'pipeline', 'add', 'tasks', 'search', 'detail'
+            restaurants: [],
+            tasks: [],
+            loading: false,
+            searchTerm: '',
+            currentRestaurantId: null,
+            // Drag-and-drop state
+            draggedItem: null,
+            draggedItemOriginalStage: null,
+        };
+
+        // --- DOM Elements ---
+        const appContent = document.getElementById('app-content');
+        const loader = document.getElementById('loader');
+        const messageBar = document.getElementById('message-bar');
+        const navButtons = document.querySelectorAll('.nav-button');
+        const backButton = document.getElementById('back-button');
+        const header = document.getElementById('app-header');
+        
+        // Modal elements
+        const modal = document.getElementById('modal');
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+
+        // --- State Management ---
+        function setState(newState) {
+            state = { ...state, ...newState };
+            render();
+        }
+
+        // --- Show/Hide UI Elements ---
+        function showLoader(isLoading) {
+            loader.style.display = isLoading ? 'flex' : 'none';
+        }
+
+        function showMessage(message, type = 'success') {
+            if (!message) {
+                messageBar.style.display = 'none';
+                return;
+            }
+            messageBar.style.display = 'block';
+            messageBar.textContent = message;
+            messageBar.className = `p-4 m-4 rounded-lg shadow ${
+                type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`;
+            // Auto-hide
+            setTimeout(() => {
+                messageBar.style.display = 'none';
+            }, 3000);
+        }
+        
+        function showConfirm({ title, message, onConfirm }) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modal.style.display = 'block';
+            modalBackdrop.style.display = 'block';
+            // Animate in
+            setTimeout(() => {
+                modal.classList.add('opacity-100', 'scale-100');
+                modal.classList.remove('opacity-0', 'scale-95');
+            }, 10);
+
+            // Use .cloneNode(true) to remove old event listeners
+            const newConfirmBtn = modalConfirmBtn.cloneNode(true);
+            modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, modalConfirmBtn);
+            
+            newConfirmBtn.onclick = () => {
+                hideConfirm();
+                onConfirm();
+            };
+            
+            modalCancelBtn.onclick = hideConfirm;
+            modalBackdrop.onclick = hideConfirm;
+        }
+        
+        function hideConfirm() {
+            modal.classList.remove('opacity-100', 'scale-100');
+            modal.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                modalBackdrop.style.display = 'none';
+            }, 200);
+        }
+        
+        // --- Navigation ---
+        function setupNav() {
+            const navMap = {
+                'nav-dashboard': 'dashboard',
+                'nav-pipeline': 'pipeline',
+                'nav-add': 'add',
+                'nav-tasks': 'tasks',
+                'nav-search': 'search',
+            };
+            
+            for (const [id, view] of Object.entries(navMap)) {
+                document.getElementById(id).onclick = () => {
+                    // Reset detail view state
+                    if (view !== 'detail') {
+                        state.currentRestaurantId = null;
+                    }
+                    setState({ view });
+                }
+            }
+            
+            backButton.onclick = () => {
+                if (state.currentRestaurantId) {
+                    state.currentRestaurantId = null;
+                    setState({ view: 'pipeline' }); // Go back to pipeline by default
+                }
+            };
+        }
+
+        function updateNavActiveState() {
+            navButtons.forEach(btn => {
+                const view = btn.id.split('-')[1];
+                if (view === state.view) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Show/hide back button
+            if (state.view === 'detail') {
+                backButton.classList.remove('hidden');
+                header.classList.add('md:px-4'); // Adjust header padding
+            } else {
+                backButton.classList.add('hidden');
+                header.classList.remove('md:px-4');
+            }
+        }
+        
+        // --- Data Fetching ---
+        async function fetchAllData() {
+            setState({ loading: true });
+            try {
+                const [restaurantRes, tasksRes] = await Promise.all([
+                    db.from('restaurants').select('*').order('created_at', { ascending: false }),
+                    db.from('tasks').select('*').order('due_date', { ascending: true })
+                ]);
+
+                if (restaurantRes.error) throw restaurantRes.error;
+                if (tasksRes.error) throw tasksRes.error;
+
+                setState({
+                    restaurants: restaurantRes.data || [],
+                    tasks: tasksRes.data || [],
+                    loading: false
+                });
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ loading: false });
+            }
+        }
+        
+        // --- Event Handlers (using delegation) ---
+        function setupAppListeners() {
+            appContent.addEventListener('click', async (e) => {
+                const target = e.target;
+                const actionEl = target.closest('[data-action]');
+                if (!actionEl) return;
+                
+                const action = actionEl.dataset.action;
+                const id = actionEl.dataset.id;
+
+                switch (action) {
+                    case 'view-detail':
+                        setState({ view: 'detail', currentRestaurantId: id });
+                        break;
+                    
+                    case 'toggle-task':
+                        const isCompleted = target.checked;
+                        await toggleTask(id, isCompleted);
+                        break;
+                    
+                    case 'delete-task':
+                        showConfirm({
+                            title: 'Delete Task?',
+                            message: 'Are you sure you want to delete this task?',
+                            onConfirm: () => deleteTask(id)
+                        });
+                        break;
+                    
+                    case 'delete-restaurant':
+                        showConfirm({
+                            title: 'Delete Restaurant?',
+                            message: 'This will delete the restaurant and all its tasks. This cannot be undone.',
+                            onConfirm: () => deleteRestaurant(id)
+                        });
+                        break;
+                }
+            });
+            
+            // Form Submissions
+            appContent.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                if (e.target.id === 'add-restaurant-form') {
+                    await handleAddRestaurant(e.target);
+                }
+                if (e.target.id === 'add-task-form') {
+                    await handleAddTask(e.target);
+                }
+                if (e.target.id === 'search-form') {
+                    const searchTerm = new FormData(e.target).get('search');
+                    setState({ searchTerm: searchTerm.toLowerCase() });
+                }
+            });
+            
+            // Search input (live search)
+            appContent.addEventListener('input', (e) => {
+                 if (e.target.id === 'search-input') {
+                    setState({ searchTerm: e.target.value.toLowerCase() });
+                }
+            });
+            
+            // --- Drag and Drop Handlers ---
+            appContent.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.kanban-card');
+                if (card) {
+                    state.draggedItem = card.dataset.id;
+                    state.draggedItemOriginalStage = card.closest('.kanban-dropzone').dataset.stage;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                }
+            });
+
+            appContent.addEventListener('dragend', (e) => {
+                const card = e.target.closest('.kanban-card');
+                if (card) {
+                    card.classList.remove('dragging');
+                    state.draggedItem = null;
+                    state.draggedItemOriginalStage = null;
+                    // Clear all drag-over highlights
+                    document.querySelectorAll('.kanban-dropzone').forEach(col => col.classList.remove('drag-over'));
+                }
+            });
+
+            appContent.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const dropzone = e.target.closest('.kanban-dropzone');
+                if (dropzone) {
+                    dropzone.classList.add('drag-over');
+                }
+            });
+            
+            appContent.addEventListener('dragleave', (e) => {
+                const dropzone = e.target.closest('.kanban-dropzone');
+                if (dropzone) {
+                    dropzone.classList.remove('drag-over');
+                }
+            });
+
+            appContent.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const dropzone = e.target.closest('.kanban-dropzone');
+                if (dropzone && state.draggedItem) {
+                    const newStage = dropzone.dataset.stage;
+                    dropzone.classList.remove('drag-over');
+                    
+                    if (newStage !== state.draggedItemOriginalStage) {
+                        handleStageUpdate(state.draggedItem, newStage);
+                    }
+                }
+            });
+        }
+        
+        // --- Database Actions ---
+        
+        async function handleAddRestaurant(form) {
+            setState({ loading: true });
+            const formData = new FormData(form);
+            const newEntry = {
+                name: formData.get('name'),
+                contact_person: formData.get('contact_person'),
+                phone: formData.get('phone'),
+                deal_value: parseInt(formData.get('deal_value'), 10) || 0,
+                deal_stage: formData.get('deal_stage'),
+                priority: formData.get('priority'),
+                lead_source: formData.get('lead_source'),
+                notes: formData.get('notes'),
+                keywords: formData.get('keywords').split(',').map(k => k.trim()).filter(k => k),
+            };
+
+            try {
+                const { data, error } = await db.from('restaurants').insert([newEntry]).select();
+                if (error) throw error;
+                
+                // Add to local state
+                state.restaurants.unshift(data[0]);
+                showMessage('Restaurant added successfully!', 'success');
+                setState({ view: 'detail', currentRestaurantId: data[0].id, loading: false });
+            } catch (err) {
+                console.error('Error saving restaurant:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ loading: false });
+            }
+        }
+        
+        async function handleAddTask(form) {
+            setState({ loading: true });
+            const formData = new FormData(form);
+            const newTask = {
+                restaurant_id: state.currentRestaurantId,
+                description: formData.get('description'),
+                due_date: formData.get('due_date') || null,
+                is_completed: false
+            };
+
+            try {
+                const { data, error } = await db.from('tasks').insert([newTask]).select();
+                if (error) throw error;
+                
+                // Add to local state
+                state.tasks.push(data[0]);
+                form.reset(); // Clear the form
+                showMessage('Task added!', 'success');
+                setState({ loading: false }); // Just re-render
+            } catch (err) {
+                console.error('Error saving task:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ loading: false });
+            }
+        }
+        
+        async function handleStageUpdate(restaurantId, newStage) {
+            // Optimistic local update
+            const oldRestaurants = [...state.restaurants];
+            const newRestaurants = state.restaurants.map(r =>
+                r.id == restaurantId ? { ...r, deal_stage: newStage } : r
+            );
+            setState({ restaurants: newRestaurants });
+
+            try {
+                const { error } = await db
+                    .from('restaurants')
+                    .update({ deal_stage: newStage })
+                    .eq('id', restaurantId);
+                if (error) throw error;
+                showMessage(`Moved to ${newStage}`, 'success');
+            } catch (err) {
+                console.error('Error updating stage:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ restaurants: oldRestaurants }); // Revert
+            }
+        }
+        
+        async function toggleTask(taskId, isCompleted) {
+            // Optimistic local update
+            const oldTasks = [...state.tasks];
+            const newTasks = state.tasks.map(t =>
+                t.id == taskId ? { ...t, is_completed: isCompleted } : t
+            );
+            setState({ tasks: newTasks });
+            
+            try {
+                const { error } = await db
+                    .from('tasks')
+                    .update({ is_completed: isCompleted })
+                    .eq('id', taskId);
+                if (error) throw error;
+            } catch (err) {
+                console.error('Error toggling task:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ tasks: oldTasks }); // Revert
+            }
+        }
+        
+        async function deleteTask(taskId) {
+            // Optimistic local update
+            const oldTasks = [...state.tasks];
+            const newTasks = state.tasks.filter(t => t.id != taskId);
+            setState({ tasks: newTasks });
+            
+            try {
+                const { error } = await db.from('tasks').delete().eq('id', taskId);
+                if (error) throw error;
+                showMessage('Task deleted', 'success');
+            } catch (err) {
+                console.error('Error deleting task:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                setState({ tasks: oldTasks }); // Revert
+            }
+        }
+
+        async function deleteRestaurant(restaurantId) {
+            // Optimistic update
+            const oldRestaurants = [...state.restaurants];
+            const oldTasks = [...state.tasks];
+            const newRestaurants = state.restaurants.filter(r => r.id != restaurantId);
+            const newTasks = state.tasks.filter(t => t.restaurant_id != restaurantId);
+            
+            // Go back to pipeline view
+            setState({ 
+                restaurants: newRestaurants, 
+                tasks: newTasks,
+                view: 'pipeline',
+                currentRestaurantId: null
+            });
+            
+            try {
+                // DB handles cascade delete for tasks
+                const { error } = await db.from('restaurants').delete().eq('id', restaurantId);
+                if (error) throw error;
+                showMessage('Restaurant deleted', 'success');
+            } catch (err) {
+                console.error('Error deleting restaurant:', err);
+                showMessage(`Error: ${err.message}`, 'error');
+                // Revert
+                setState({ restaurants: oldRestaurants, tasks: oldTasks, view: 'detail' });
+            }
+        }
+
+
+        // --- Render Functions (generating HTML) ---
+        
+        // Main render loop
+        function render() {
+            showLoader(state.loading);
+            updateNavActiveState();
+            
+            let html = '';
+            try {
+                switch(state.view) {
+                    case 'dashboard':
+                        html = renderDashboardView();
+                        break;
+                    case 'pipeline':
+                        html = renderPipelineView();
+                        break;
+                    case 'add':
+                        html = renderAddForm();
+                        break;
+                    case 'tasks':
+                        html = renderTasksView();
+                        break;
+                    case 'search':
+                        html = renderSearchView();
+                        break;
+                    case 'detail':
+                        html = renderRestaurantDetailView(state.currentRestaurantId);
+                        break;
+                }
+            } catch (err) {
+                console.error("Render Error:", err);
+                showMessage(`An error occurred while rendering: ${err.message}`, 'error');
+                html = `<div class="bg-red-100 text-red-800 p-4 rounded-lg">Render Error. See console.</div>`;
+            }
+            appContent.innerHTML = html;
+        }
+
+        // --- View: Dashboard ---
+        function renderDashboardView() {
+            const today = new Date().toISOString().split('T')[0];
+            const tasksDueToday = state.tasks.filter(t => t.due_date === today && !t.is_completed).length;
+            const hotLeads = state.restaurants.filter(r => r.priority === 'Hot' && !['Closed-Won', 'Closed-Lost'].includes(r.deal_stage)).length;
+            const totalPipelineValue = state.restaurants
+                .filter(r => !['Closed-Won', 'Closed-Lost'].includes(r.deal_stage))
+                .reduce((sum, r) => sum + (r.deal_value || 0), 0);
+            
+            const salesFunnel = DEAL_STAGES.reduce((acc, stage) => {
+                acc[stage] = state.restaurants.filter(r => r.deal_stage === stage).length;
+                return acc;
+            }, {});
+            
+            const kpiS = [
+                { 
+                    label: "Pipeline Value", 
+                    value: `₹${totalPipelineValue.toLocaleString('en-IN')}`, 
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                    color: 'primary'
+                },
+                { 
+                    label: "Hot Leads", 
+                    value: hotLeads, 
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343m11.314 11.314a8 8 0 01-11.314 0m11.314 0L20 20M3 4l2.657 2.657m0 0a8 8 0 010 11.314M6.343 7.343a8 8 0 0111.314 0" /></svg>`,
+                    color: 'red'
+                },
+                { 
+                    label: "Tasks Due Today", 
+                    value: tasksDueToday, 
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
+                    color: 'yellow'
+                },
+                { 
+                    label: "Deals Won", 
+                    value: salesFunnel['Closed-Won'] || 0, 
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 19c-.879-.438-1.44-1.334-1.44-2.36V11c0-1.026.561-1.922 1.44-2.36l4.066-2.033a.5.5 0 01.485-.06z" /></svg>`,
+                    color: 'green'
+                }
+            ];
+            
+            const kpiColors = {
+                primary: 'primary-bg-light primary-text-dark',
+                red: 'bg-red-50 text-red-700',
+                yellow: 'bg-yellow-50 text-yellow-700',
+                green: 'secondary-bg-light secondary-text-dark'
+            };
+
+            return `
+                <div class="space-y-6">
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-2 gap-4 md:gap-6">
+                        ${kpiS.map(kpi => `
+                            <div class="p-4 rounded-2xl shadow-sm ${kpiColors[kpi.color]}">
+                                <div class="mb-2">${kpi.icon}</div>
+                                <div class="text-3xl font-bold">${kpi.value}</div>
+                                <div class="text-sm font-medium opacity-80">${kpi.label}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Tasks Due Today -->
+                    ${renderTasksView(true)}
+                    
+                    <!-- Sales Funnel -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 text-gray-800">Sales Funnel</h3>
+                        <div class="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+                            ${DEAL_STAGES.map(stage => {
+                                const count = salesFunnel[stage] || 0;
+                                const max = Math.max(1, ...Object.values(salesFunnel));
+                                const width = (count / max) * 100;
+                                return `
+                                    <div class="flex items-center">
+                                        <span class="w-24 text-sm font-medium text-gray-600">${stage}</span>
+                                        <div class="flex-1 h-6 bg-gray-100 rounded-md overflow-hidden">
+                                            <div class="h-full primary-bg transition-all" style="width: ${width}%"></div>
+                                        </div>
+                                        <span class="w-10 text-right text-sm font-bold text-gray-800 ml-2">${count}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- View: Pipeline (Kanban) ---
+        function renderPipelineView() {
+            return `
+                <div class="overflow-x-auto flex space-x-4 pb-4" style="scroll-snap-type: x mandatory;">
+                    ${DEAL_STAGES.map(stage => renderKanbanColumn(stage)).join('')}
+                </div>
+            `;
+        }
+        
+        function renderKanbanColumn(stage) {
+            const restaurantsInStage = state.restaurants.filter(r => r.deal_stage === stage);
+            const valueInStage = restaurantsInStage.reduce((sum, r) => sum + (r.deal_value || 0), 0);
+            
+            return `
+                <div class="kanban-column w-full md:w-80 flex-shrink-0" data-stage="${stage}">
+                    <h3 class="text-lg font-semibold text-gray-800 p-2">${stage} <span class="text-sm font-normal text-gray-500">(${restaurantsInStage.length})</span></h3>
+                    <p class="text-sm font-semibold primary-text p-2 -mt-2">₹${valueInStage.toLocaleString('en-IN')}</p>
+                    <div 
+                        class="kanban-dropzone h-full bg-gray-100 rounded-2xl p-3 space-y-3 border border-transparent" 
+                        data-stage="${stage}"
+                    >
+                        ${restaurantsInStage.length > 0 ? 
+                            restaurantsInStage.map(renderKanbanCard).join('') : 
+                            `<div class="text-center text-sm text-gray-500 p-4">No deals here.</div>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderKanbanCard(restaurant) {
+            const priorityColors = {
+                Hot: 'bg-red-500',
+                Warm: 'bg-yellow-500',
+                Cold: 'bg-blue-500',
+            };
+            
+            return `
+                <div 
+                    class="kanban-card bg-white rounded-xl shadow-md p-4 cursor-pointer hover:shadow-lg transition-shadow" 
+                    data-id="${restaurant.id}"
+                    data-action="view-detail"
+                    draggable="true"
+                >
+                    <div class="flex justify-between items-start">
+                        <span class="text-sm font-semibold text-gray-800">${restaurant.name}</span>
+                        <span class="h-3 w-3 rounded-full ${priorityColors[restaurant.priority] || 'bg-gray-400'}" title="Priority: ${restaurant.priority}"></span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">${restaurant.contact_person || 'No contact'}</p>
+                    <p class="text-sm font-bold primary-text">₹${(restaurant.deal_value || 0).toLocaleString('en-IN')}</p>
+                </div>
+            `;
+        }
+
+        // --- View: Restaurant Detail ---
+        function renderRestaurantDetailView(id) {
+            const restaurant = state.restaurants.find(r => r.id == id);
+            if (!restaurant) return `<p>Restaurant not found.</p>`;
+            
+            const tasksForRestaurant = state.tasks.filter(t => t.restaurant_id == id);
+            
+            const cleanPhone = (phone) => phone ? phone.replace(/[^0-9+]/g, '') : '';
+            const phone = cleanPhone(restaurant.phone);
+            const waLink = `https://wa.me/${phone}`;
+            const telLink = `tel:${phone}`;
+            
+            const infoPill = (label, value, color = 'gray') => {
+                const colors = {
+                    gray: 'bg-gray-100 text-gray-800',
+                    red: 'bg-red-100 text-red-700',
+                    yellow: 'bg-yellow-100 text-yellow-800',
+                    blue: 'bg-blue-100 text-blue-800',
+                    green: 'bg-green-100 text-green-800',
+                };
+                return `
+                    <div class="flex-1 text-center p-3 rounded-lg ${colors[color]}">
+                        <span class="text-xs font-medium uppercase opacity-70">${label}</span>
+                        <p class="text-base font-semibold">${value || 'N/A'}</p>
+                    </div>
+                `;
+            };
+            
+            const priorityColor = restaurant.priority === 'Hot' ? 'red' : (restaurant.priority === 'Warm' ? 'yellow' : 'blue');
+            const stageColor = ['Closed-Won', 'Proposal'].includes(restaurant.deal_stage) ? 'green' : 'gray';
+
+            return `
+                <div class="space-y-6">
+                    <!-- Header -->
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">${restaurant.name}</h2>
+                        <p class="text-lg text-gray-600">${restaurant.contact_person || 'No contact person'}</p>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    ${phone ? `
+                        <div class="flex space-x-3">
+                            <a href="${telLink}" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                Call
+                            </a>
+                            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-500 hover:bg-green-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.894-9.889-9.895-5.452 0-9.887 4.434-9.889 9.896.001 2.205.738 4.381 2.006 6.041l-1.34 4.888 4.996-1.314z" /></svg>
+                                WhatsApp
+                            </a>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Deal Info -->
+                    <div class="flex gap-3">
+                        ${infoPill('Value', `₹${(restaurant.deal_value || 0).toLocaleString('en-IN')}`)}
+                        ${infoPill('Priority', restaurant.priority, priorityColor)}
+                        ${infoPill('Stage', restaurant.deal_stage, stageColor)}
+                    </div>
+                    
+                    <!-- Details Card -->
+                    <div class="bg-white rounded-2xl shadow-sm p-5">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Details</h4>
+                        <div class="space-y-2 text-sm">
+                            <p><strong>Lead Source:</strong> ${restaurant.lead_source || 'N/A'}</p>
+                            <p><strong>Keywords:</strong> ${(restaurant.keywords && restaurant.keywords.join(', ')) || 'None'}</p>
+                            <h5 class="font-semibold text-gray-800 pt-2">Notes:</h5>
+                            <p class="text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg border">${restaurant.notes || 'No notes added.'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tasks Section -->
+                    <div class="bg-white rounded-2xl shadow-sm p-5">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">Tasks</h4>
+                        <form id="add-task-form" class="flex gap-2 mb-4">
+                            <input type="text" name="description" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm" placeholder="New task description..." required>
+                            <input type="date" name="due_date" class="px-3 py-2 border border-gray-300 rounded-lg shadow-sm">
+                            <button type="submit" class="px-4 py-2 primary-bg text-white font-semibold rounded-lg shadow-md hover:opacity-90">Add</button>
+                        </form>
+                        <ul class="space-y-2">
+                            ${tasksForRestaurant.length > 0 ? 
+                                tasksForRestaurant.sort((a,b) => a.is_completed - b.is_completed).map(renderTaskRow).join('') : 
+                                `<li class="text-center text-gray-500 py-4">No tasks for this restaurant.</li>`
+                            }
+                        </ul>
+                    </div>
+                    
+                    <!-- Delete Button -->
+                    <div class="text-center pt-4">
+                        <button data-action="delete-restaurant" data-id="${restaurant.id}" class="text-sm font-medium text-red-600 hover:text-red-800">
+                            Delete Restaurant
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- View: Add/Edit Form ---
+        function renderAddForm() {
+            return `
+                <div class="bg-white p-5 md:p-8 rounded-2xl shadow-xl max-w-2xl mx-auto">
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-6">Add New Deal</h2>
+                    <form id="add-restaurant-form" class="space-y-5">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700">Restaurant Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="name" name="name" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm" required>
+                            </div>
+                            <div>
+                                <label for="contact_person" class="block text-sm font-medium text-gray-700">Contact Person</label>
+                                <input type="text" id="contact_person" name="contact_person" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label for="phone" class="block text-sm font-medium text-gray-700">Contact Phone</label>
+                                <input type="tel" id="phone" name="phone" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                            </div>
+                            <div>
+                                <label for="deal_value" class="block text-sm font-medium text-gray-700">Deal Value (₹)</label>
+                                <input type="number" id="deal_value" name="deal_value" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g. 50000">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div>
+                                <label for="deal_stage" class="block text-sm font-medium text-gray-700">Stage</label>
+                                <select id="deal_stage" name="deal_stage" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white">
+                                    ${DEAL_STAGES.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="priority" class="block text-sm font-medium text-gray-700">Priority</label>
+                                <select id="priority" name="priority" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white">
+                                    ${PRIORITIES.map(p => `<option value="${p}">${p}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="lead_source" class="block text-sm font-medium text-gray-700">Lead Source</label>
+                                <select id="lead_source" name="lead_source" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white">
+                                    ${LEAD_SOURCES.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="keywords" class="block text-sm font-medium text-gray-700">Keywords (comma-separated)</label>
+                            <input type="text" id="keywords" name="keywords" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g. discount, software, interested">
+                        </div>
+
+                        <div>
+                            <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
+                            <textarea id="notes" name="notes" rows="5" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm" placeholder="Enter deal details, follow-up actions, etc."></textarea>
+                        </div>
+                        
+                        <div class="text-right pt-2">
+                            <button type="submit" class="w-full md:w-auto px-8 py-3 primary-bg text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition-opacity">
+                                Save Restaurant
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+        
+        // --- View: All Tasks ---
+        function renderTasksView(isDashboard = false) {
+            const today = new Date().toISOString().split('T')[0];
+            let tasks;
+            
+            if (isDashboard) {
+                tasks = state.tasks.filter(t => t.due_date === today && !t.is_completed);
+            } else {
+                // Show upcoming and overdue, incomplete tasks first
+                tasks = state.tasks
+                    .filter(t => !t.is_completed)
+                    .sort((a,b) => (a.due_date || '9999') - (b.due_date || '9999'));
+            }
+            
+            const title = isDashboard ? "Tasks Due Today" : "All Open Tasks";
+            const emptyMessage = isDashboard ? "No tasks due today. Well done!" : "No open tasks. Add some from a restaurant's detail page.";
+
+            return `
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 text-gray-800">${title}</h3>
+                    <div class="bg-white rounded-2xl shadow-sm p-4">
+                        <ul class="divide-y divide-gray-100">
+                            ${tasks.length > 0 ? 
+                                tasks.map(renderTaskRow).join('') : 
+                                `<li class="text-center text-gray-500 py-4">${emptyMessage}</li>`
+                            }
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- View: Search ---
+        function renderSearchView() {
+            const filtered = state.restaurants.filter(r =>
+                r.name.toLowerCase().includes(state.searchTerm) ||
+                (r.notes && r.notes.toLowerCase().includes(state.searchTerm)) ||
+                (r.keywords && r.keywords.some(k => k.toLowerCase().includes(state.searchTerm)))
+            );
+            
+            return `
+                <div class="space-y-6">
+                    <form id="search-form">
+                        <input
+                            type="search"
+                            id="search-input"
+                            name="search"
+                            value="${state.searchTerm}"
+                            class="w-full px-5 py-3 border border-gray-300 rounded-xl shadow-sm text-lg"
+                            placeholder="Type to search..."
+                        />
+                    </form>
+                    
+                    <div class="space-y-4">
+                    ${filtered.length > 0 ?
+                        filtered.map(renderRestaurantSearchCard).join('') :
+                        `<p class="text-center text-gray-500 py-8">No results found for "${state.searchTerm}".</p>`
+                    }
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderRestaurantSearchCard(restaurant) {
+            return `
+                <div class="bg-white rounded-xl shadow-md p-4" data-action="view-detail" data-id="${restaurant.id}">
+                    <span class="text-xs font-medium primary-text-dark primary-bg-light px-2 py-1 rounded-full">${restaurant.deal_stage}</span>
+                    <h4 class="text-lg font-semibold text-gray-800 mt-1">${restaurant.name}</h4>
+                    <p class="text-sm text-gray-600">${restaurant.contact_person || 'No contact'}</p>
+                    <p class="text-sm font-semibold primary-text mt-1">₹${(restaurant.deal_value || 0).toLocaleString('en-IN')}</p>
+                </div>
+            `;
+        }
+
+        // --- Child Component: Task Row ---
+        function renderTaskRow(task) {
+            const restaurant = state.restaurants.find(r => r.id === task.restaurant_id);
+            const isOverdue = !task.is_completed && task.due_date && task.due_date < new Date().toISOString().split('T')[0];
+            
+            return `
+                <li class="py-3 flex items-center justify-between" data-task-id="${task.id}">
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            class="h-5 w-5 rounded primary-text border-gray-300"
+                            data-action="toggle-task"
+                            data-id="${task.id}"
+                            ${task.is_completed ? 'checked' : ''}
+                        >
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-800 ${task.is_completed ? 'line-through text-gray-400' : ''}">
+                                ${task.description}
+                            </p>
+                            <div class="text-xs text-gray-500 space-x-2">
+                                ${restaurant ? `<span>${restaurant.name}</span>` : ''}
+                                ${task.due_date ? 
+                                    `<span class="font-medium ${isOverdue ? 'text-red-500' : 'text-gray-600'}">
+                                        ${formatDate(task.due_date, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                                    </span>` 
+                                    : ''
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <button data-action="delete-task" data-id="${task.id}" class="text-gray-400 hover:text-red-500 ml-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </li>
+            `;
+        }
+        
+        // --- Helper to format dates ---
+        function formatDate(dateString, options = {}) {
+            if (!dateString) return 'N/A';
+            const defaultOptions = {
+                day: 'numeric', month: 'short', year: 'numeric',
+            };
+            const finalOptions = { ...defaultOptions, ...options };
+            
+            // Handle (YYYY-MM-DD)
+            if (dateString.length === 10) {
+                const [year, month, day] = dateString.split('-');
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('en-US', finalOptions);
+            }
+            // Handle full timestamp
+            return new Date(dateString).toLocaleString('en-US', finalOptions);
+        }
+
+        // --- App Initialization ---
+        function init() {
+            setupNav();
+            setupAppListeners();
+            fetchAllData(); // Load initial data
+        }
+        
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
+
