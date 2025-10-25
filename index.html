@@ -232,7 +232,9 @@
     <script type="module">
         // --- Supabase Setup ---
         const SUPABASE_URL = 'https://seygsmqucuvnialnuqdv.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIZUIXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNleWdzbXF1Y3V2bmlhbG51cWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzODY1ODMsImV4cCI6MjA3Njk2MjU4M30.5iXFdlkDHVKRjHBTqUiI1SrRpItoLbrTsZVe-9ETiII';
+        // *** THIS KEY IS NOW CORRECTED ***
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNleWdzbXF1Y3V2bmlhbG51cWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzODY1ODMsImV4cCI6MjA3Njk2MjU4M30.5iXFdlkDHVKRjHBTqUiI1SrRpItoLbrTsZVe-9ETiII';
+        
         const { createClient } = supabase;
         const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
