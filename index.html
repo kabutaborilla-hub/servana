@@ -987,13 +987,22 @@
                 <div class="space-y-6">
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-2 gap-4">
-                        ${kpiS.map(kpi => `
+                        ${kpiS.map(kpi => {
+                            // --- FIX ---
+                            // Defensively get color classes with a fallback
+                            const colorClassString = kpiColors[kpi.color] || 'bg-slate-50 text-slate-700';
+                            const colorClasses = colorClassString.split(' ');
+                            const textColor = colorClasses[1] || 'text-slate-700'; // Fallback for split
+                            // --- END FIX ---
+                            
+                            return `
                             <div class="p-4 rounded-2xl shadow-sm bg-white">
-                                <div class="mb-2 ${kpiColors[kpi].split(' ')[1]}">${kpi.icon}</div>
+                                <div class="mb-2 ${textColor}">${kpi.icon}</div>
                                 <div class="text-3xl font-bold text-slate-900">${kpi.value}</div>
                                 <div class="text-sm font-medium text-slate-500">${kpi.label}</div>
                             </div>
-                        `).join('')}
+                            `
+                        }).join('')}
                     </div>
 
                     <!-- Tasks Due Today -->
@@ -1362,7 +1371,7 @@
             const lostDeals = state.restaurants.filter(r => r.deal_stage === 'Closed-Lost');
             const openDeals = totalDeals - wonDeals.length - lostDeals.length;
             
-            const winRate = totalDeals > 0 ? ((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100).toFixed(0) : 0;
+            const winRate = totalDeals > 0 && (wonDeals.length + lostDeals.length) > 0 ? ((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100).toFixed(0) : 0;
             const totalWonValue = wonDeals.reduce((sum, r) => sum + r.deal_value, 0);
             const avgDealValue = wonDeals.length > 0 ? (totalWonValue / wonDeals.length) : 0;
 
@@ -1376,7 +1385,7 @@
             });
             
             const maxCount = Math.max(1, ...stagesData.map(s => s.count));
-            const maxValue = Math.max(1, ...stagesData.map(s => s.value));
+            const maxValue = Math.max(1, ...stagesData.filter(s => !['Closed-Won', 'Closed-Lost'].includes(s.name)).map(s => s.value));
 
             return `
                 <div class="space-y-6">
@@ -1387,7 +1396,7 @@
                         ${renderStatCard("Total Deals", totalDeals)}
                         ${renderStatCard("Open Deals", openDeals)}
                         ${renderStatCard("Win Rate", `${winRate}%`)}
-                        ${renderStatCard("Avg. Deal", `₹${avgDealValue.toLocaleString('en-IN')}`)}
+                        ${renderStatCard("Avg. Deal", `₹${Math.round(avgDealValue).toLocaleString('en-IN')}`)}
                     </div>
                     
                     <!-- Chart: Deals by Stage -->
@@ -1533,7 +1542,7 @@
         // --- App Initialization ---
         function init() {
             // Check for HTTPS (required for audio recording)
-            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            if (window.location.protocol !== 'https:S' && window.location.hostname !== 'localhost') {
                 showMessage("Audio recording requires a secure (https://) connection.", "error");
             }
             setupNav();
